@@ -3,7 +3,7 @@ internal class FluentConsole
 {
 	public FluentConsole Write(string value)
 	{
-		Console.Write(value);
+		Console.Out.Write(value);
 		return this;
 	}
 	public FluentConsole Write(char value)
@@ -27,10 +27,10 @@ internal class FluentConsole
 	}
 
 	public Position Position() => (Position)Console.GetCursorPosition();
-	public FluentConsole Position(int left, int top) => Position(new(left, top));
-	public FluentConsole Position(Position position)
+	public FluentConsole Position(Position position) => Position(position.Left, position.Top);
+	public FluentConsole Position(int left, int top)
 	{
-		Console.SetCursorPosition(position.Left, position.Top);
+		Console.SetCursorPosition(left, top);
 		return this;
 	}
 
@@ -45,8 +45,6 @@ internal class FluentConsole
 		return this;
 	}
 
-	public ConsoleColor ForegroundColor { get => Console.ForegroundColor; set => ForeColor(value); }
-	public ConsoleColor BackgroundColor { get => Console.BackgroundColor; set => BackColor(value); }
-	public int BufferWidth => Console.BufferWidth;
-	public int BufferHeight => Console.BufferHeight;
+	public int Width => Console.BufferWidth;
+	public int Height => Console.BufferHeight;
 }

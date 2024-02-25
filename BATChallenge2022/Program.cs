@@ -14,12 +14,12 @@ internal class Program
 	private static void Main(string[] args)
 	{
 		Stats stats = new();
-		Position playerPosition = new(Console.BufferWidth / 2, Console.BufferHeight / 2), currentBiome = new();
+		Position playerPosition = new(Console.Width / 2, Console.Height / 2), currentBiome = new();
 		ConsoleColor playerColor = GetRandomColor();
 
 		Biome biome = ShowBiome(currentBiome, stats);
 
-		DrawStats(currentBiome, stats);
+		DrawStats(currentBiome, stats, biome);
 
 		DeathReasons? deathReason = null;
 
@@ -37,13 +37,13 @@ internal class Program
 						playerPosition.Top--;
 					else
 					{
-						playerPosition.Top = Console.BufferHeight - 1;
+						playerPosition.Top = Console.Height - 1;
 						currentBiome.Top--;
 						biome = ShowBiome(currentBiome, stats);
 					}
 					break;
 				case ConsoleKey.DownArrow or ConsoleKey.S:
-					if (playerPosition.Top < Console.BufferHeight - 1)
+					if (playerPosition.Top < Console.Height - 1)
 						playerPosition.Top++;
 					else
 					{
@@ -57,13 +57,13 @@ internal class Program
 						playerPosition.Left--;
 					else
 					{
-						playerPosition.Left = Console.BufferWidth - 1;
+						playerPosition.Left = Console.Width - 1;
 						currentBiome.Left--;
 						biome = ShowBiome(currentBiome, stats);
 					}
 					break;
 				case ConsoleKey.RightArrow or ConsoleKey.D:
-					if (playerPosition.Left < Console.BufferWidth - 1)
+					if (playerPosition.Left < Console.Width - 1)
 						playerPosition.Left++;
 					else
 					{
@@ -76,8 +76,7 @@ internal class Program
 					continue;
 			}
 
-			stats.Hunger--;
-			stats.BlocksTravelled++;
+			HandleStatChanges(stats);
 
 			if (biome.Items.TryGetValue(playerPosition, out IItem? item))
 			{
@@ -85,21 +84,19 @@ internal class Program
 				biome.Items.Remove(playerPosition);
 			}
 
-			DrawStats(currentBiome, stats);
+			DrawStats(currentBiome, stats, biome);
 
-			if (stats.Hunger <= 0)
+			deathReason = stats switch
 			{
-				deathReason = DeathReasons.Starved;
-			}
-			else if (stats.Hunger > 1000)
-			{
-				deathReason = DeathReasons.Diabetes;
-			}
-			else if (stats.Money > 5000)
-			{
-				deathReason = DeathReasons.Money;
-			}
+				{ Hunger: <= 0 } => DeathReasons.Starved,
+				{ Hunger: >= 1000 } => DeathReasons.Diabetes,
+				{ Money: <= -200 } => DeathReasons.Mafia,
+				{ Money: >= 5000 } => DeathReasons.Money,
+				_ => null
+			};
 		}
+
+		Console.ForeColor(biome.Color);
 
 		DrawDeathAnimation();
 		if (ShowDeathScreen(stats, deathReason))
@@ -108,20 +105,30 @@ internal class Program
 			Environment.Exit(0);
 	}
 
-	private static ConsoleColor GetRandomColor() => (ConsoleColor)Random.Shared.Next(15);
+	private static void HandleStatChanges(Stats stats)
+	{
+		stats.Hunger--;
+
+		if (Random.Shared.Next(61) == 60)
+			stats.Money -= Random.Shared.Next(10, 100);
+
+		stats.BlocksTravelled++;
+	}
+
+	private static ConsoleColor GetRandomColor() => (ConsoleColor)Random.Shared.Next(1, 15);
 
 	private static void DrawDeathAnimation()
 	{
 		try
 		{
-			int topLeft = 0, topRight = 0, bottomLeft = Console.BufferHeight - 1, bottomRight = Console.BufferWidth - 1;
+			int topLeft = 1, topRight = 0, bottomLeft = Console.Height - 1, bottomRight = Console.Width - 1;
 			int direction = 0;
 			Position pos = new();
-			long ticksPerChar = TimeSpan.FromSeconds(3).Ticks / (Console.BufferHeight * Console.BufferWidth);
+			long ticksPerChar = TimeSpan.FromSeconds(3).Ticks / (Console.Height * Console.Width);
 			while (true)
 			{
 				var timestamp = Stopwatch.GetTimestamp();
-				if (pos.Left >= Console.BufferWidth || pos.Top >= Console.BufferHeight)
+				if (pos.Left >= Console.Width || pos.Top >= Console.Height)
 					break;
 				Console.Position(pos).Write('\u00A0');
 				switch (direction)
@@ -180,12 +187,12 @@ internal class Program
 		restartMessage = "Restart (y/n)?",
 		blocksTravelledMessage = $"Felder bewegt: {stats.BlocksTravelled}",
 		biomesDiscoveredMessage = $"Biome entdeckt: {stats.Biomes.Count}";
-		Position center = new(Console.BufferWidth / 2, Console.BufferHeight / 2);
+		Position center = new(Console.Width / 2, Console.Height / 2);
 		Console
 			.Position(center.Transform(-deathMessage.Length / 2, 0)).Write(deathMessage)
 			.Position(center.Transform(-restartMessage.Length / 2, 1)).Write(restartMessage)
-			.Position(center.Left - blocksTravelledMessage.Length / 2, Console.BufferHeight - 2).Write(blocksTravelledMessage)
-			.Position(center.Left - biomesDiscoveredMessage.Length / 2, Console.BufferHeight - 1).Write(biomesDiscoveredMessage)
+			.Position(center.Left - blocksTravelledMessage.Length / 2, Console.Height - 2).Write(blocksTravelledMessage)
+			.Position(center.Left - biomesDiscoveredMessage.Length / 2, Console.Height - 1).Write(biomesDiscoveredMessage)
 			.Position(center.Transform(0, 2));
 		while (true)
 		{
@@ -205,25 +212,25 @@ internal class Program
 	=> reason switch
 	{
 		DeathReasons.Money => "Du bist in deinem Geldsee ertrunken.",
+		DeathReasons.Mafia => "Die Mafia hat dich wegen deinen Schulden heimgesucht.",
 		DeathReasons.Diabetes => "Du bist an Zucker gestorben.",
 		DeathReasons.Starved => "Du bist verhungert.",
 		_ => "Erstaunlich! Du bist dem Tode zu Opfer gefallen."
 	};
 
-	static private void DrawStats(Position biomePosition, Stats stats)
+	static private void DrawStats(Position biomePosition, Stats stats, Biome biome)
 	{
 		string[] statStrings = StatRegistry.Select(e => e(stats)).ToArray();
 		var length = statStrings.Max(e => e.Length) + 2;
 
-		int top = Console.BufferHeight - (2 + statStrings.Length);
-		var oldColor = Console.ForegroundColor;
+		int top = Console.Height - (2 + statStrings.Length);
 
 		if (length < stats.LastStatWidth)
 		{
-			Console.ForeColor(GetBiome(biomePosition, stats).Color);
+			Console.ForeColor(biome.Color);
 			for (int x = length + 2; x < stats.LastStatWidth + 2; x++)
 			{
-				for (int y = top; y < Console.BufferHeight; y++)
+				for (int y = top; y < Console.Height; y++)
 				{
 					Console.Position(x, y).Write('\u2588');
 				}
@@ -245,8 +252,6 @@ internal class Program
 
 		EmptyLine(top, '╚', '═', '╝');
 
-		Console.ForeColor(oldColor);
-
 		stats.LastStatWidth = length;
 	}
 
@@ -258,7 +263,7 @@ internal class Program
 			int count = Random.Shared.Next(3, 10);
 			for (; count > 0; count--)
 			{
-				if (!Items.TryAdd(new Position(Random.Shared.Next(Console.BufferWidth - 1), Random.Shared.Next(Console.BufferHeight - 1)), ItemRegistry[Random.Shared.Next(ItemRegistry.Length)]()))
+				if (!Items.TryAdd(new Position(Random.Shared.Next(Console.Width - 1), Random.Shared.Next(Console.Height - 1)), ItemRegistry[Random.Shared.Next(ItemRegistry.Length)]()))
 					count++;
 			}
 			stats.Biomes.Add(pos, new(GetRandomColor(), Items));
@@ -275,7 +280,6 @@ internal class Program
 		{
 			Console.Position(item.Key).ForeColor(item.Value.Color).Write(item.Value.Character);
 		}
-		Console.ForegroundColor = biome.Color;
 		return biome;
 	}
 }

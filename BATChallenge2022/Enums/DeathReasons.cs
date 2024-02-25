@@ -3,5 +3,6 @@ internal enum DeathReasons
 {
 	Starved,
 	Diabetes,
+	Mafia,
 	Money,
 }

@@ -2,12 +2,9 @@
 {
 	public int Left { get; set; } = left;
 	public int Top { get; set; } = top;
-	public int X => Left;
-	public int Y => Top;
 
-	public bool Equals(Position other) => X == other.X && Y == other.Y;
+	public bool Equals(Position other) => Left == other.Left && Top == other.Top;
 
-	public Position Transform(Position offset) => new(Left + offset.Left, Top + offset.Top);
 	public Position Transform(int left, int top) => new(Left + left, Top + top);
 
 	public static explicit operator Position((int Left, int Top) v) => new(v.Left, v.Top);
