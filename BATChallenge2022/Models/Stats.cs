@@ -7,4 +7,6 @@ public class Stats
 	public int Money { get; set; } = 0;
 
 	public int Hunger { get; set; } = 200;
+
+	public int LastStatWidth { get; set; }
 }

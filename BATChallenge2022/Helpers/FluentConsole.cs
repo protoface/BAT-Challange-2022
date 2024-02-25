@@ -3,7 +3,7 @@ internal class FluentConsole
 {
 	public FluentConsole Write(string value)
 	{
-		Console.WriteLine(value);
+		Console.Write(value);
 		return this;
 	}
 	public FluentConsole Write(char value)
@@ -34,9 +34,14 @@ internal class FluentConsole
 		return this;
 	}
 
-	public FluentConsole Clear()
+	public FluentConsole Fill(ConsoleColor color, char filler = '\u2588')
 	{
-		Console.Clear();
+		string fillerString = string.Empty.PadRight(Console.BufferWidth, filler);
+		ForeColor(color);
+		for (int y = 0; y < Console.BufferHeight; y++)
+		{
+			Position(0, y).Write(fillerString);
+		}
 		return this;
 	}
 

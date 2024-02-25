@@ -7,5 +7,8 @@
 
 	public bool Equals(Position other) => X == other.X && Y == other.Y;
 
+	public Position Transform(Position offset) => new(Left + offset.Left, Top + offset.Top);
+	public Position Transform(int left, int top) => new(Left + left, Top + top);
+
 	public static explicit operator Position((int Left, int Top) v) => new(v.Left, v.Top);
 }
