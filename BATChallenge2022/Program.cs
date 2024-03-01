@@ -2,17 +2,19 @@
 using BATChallenge2022.Helpers;
 using BATChallenge2022.Interfaces;
 using BATChallenge2022.Models;
+using BATChallenge2022.Models.Player;
 using System.Diagnostics;
 
 internal class Program
 {
-	static FluentConsole Console = new();
+	internal static FluentConsole Console = new();
 
 	static Func<IItem>[] ItemRegistry = [() => new MoneyItem(), () => new HungerItem()];
 	static Func<Stats, string>[] StatRegistry = [(stats) => $"Money: {stats.Money} $", (stats) => $"Hunger: {stats.Hunger}"];
 
 	private static void Main(string[] args)
 	{
+		IPlayer player = args.Contains("--snake") ? new SnakePlayer() : new BasicPlayer();
 		Stats stats = new();
 		Position playerPosition = new(Console.Width / 2, Console.Height / 2), currentBiome = new();
 		ConsoleColor playerColor = GetRandomColor();
@@ -25,64 +27,11 @@ internal class Program
 
 		while (deathReason == null)
 		{
-			Console.Position(playerPosition).ForeColor(playerColor).Write('@');
-
-			ConsoleKey input = Console.ReadKey();
-			Console.Position(playerPosition).ForeColor(biome.Color).Write('\u2588');
-
-			switch (input)
-			{
-				case ConsoleKey.UpArrow or ConsoleKey.W:
-					if (playerPosition.Top > 0)
-						playerPosition.Top--;
-					else
-					{
-						playerPosition.Top = Console.Height - 1;
-						currentBiome.Top--;
-						biome = ShowBiome(currentBiome, stats);
-					}
-					break;
-				case ConsoleKey.DownArrow or ConsoleKey.S:
-					if (playerPosition.Top < Console.Height - 1)
-						playerPosition.Top++;
-					else
-					{
-						playerPosition.Top = 0;
-						currentBiome.Top++;
-						biome = ShowBiome(currentBiome, stats);
-					}
-					break;
-				case ConsoleKey.LeftArrow or ConsoleKey.A:
-					if (playerPosition.Left > 0)
-						playerPosition.Left--;
-					else
-					{
-						playerPosition.Left = Console.Width - 1;
-						currentBiome.Left--;
-						biome = ShowBiome(currentBiome, stats);
-					}
-					break;
-				case ConsoleKey.RightArrow or ConsoleKey.D:
-					if (playerPosition.Left < Console.Width - 1)
-						playerPosition.Left++;
-					else
-					{
-						playerPosition.Left = 0;
-						currentBiome.Left++;
-						biome = ShowBiome(currentBiome, stats);
-					}
-					break;
-				default:
-					continue;
-			}
+			player.Move(stats, ref playerPosition, ref currentBiome, playerColor, ref biome, ref deathReason);
 
 			HandleStatChanges(stats);
 
-			if (biome.Items.TryGetValue(playerPosition, out IItem? item))
-			{
-				item.Collected(stats);
-				biome.Items.Remove(playerPosition);
-			}
+			TryEatItem(stats, playerPosition, biome);
 
 			DrawStats(currentBiome, stats, biome);
 
@@ -92,7 +41,7 @@ internal class Program
 				{ Hunger: >= 1000 } => DeathReasons.Diabetes,
 				{ Money: <= -200 } => DeathReasons.Mafia,
 				{ Money: >= 5000 } => DeathReasons.Money,
-				_ => null
+				_ => deathReason
 			};
 		}
 
@@ -103,6 +52,17 @@ internal class Program
 			Main(args);
 		else
 			Environment.Exit(0);
+	}
+
+	internal static bool TryEatItem(Stats stats, Position playerPosition, Biome biome)
+	{
+		if (biome.Items.TryGetValue(playerPosition, out IItem? item))
+		{
+			item.Collected(stats);
+			biome.Items.Remove(playerPosition);
+			return true;
+		}
+		return false;
 	}
 
 	private static void HandleStatChanges(Stats stats)
@@ -215,6 +175,7 @@ internal class Program
 		DeathReasons.Mafia => "Die Mafia hat dich wegen deinen Schulden heimgesucht.",
 		DeathReasons.Diabetes => "Du bist an Zucker gestorben.",
 		DeathReasons.Starved => "Du bist verhungert.",
+		DeathReasons.Self => "Du bist an dir selbst gestorben",
 		_ => "Erstaunlich! Du bist dem Tode zu Opfer gefallen."
 	};
 
@@ -255,7 +216,7 @@ internal class Program
 		stats.LastStatWidth = length;
 	}
 
-	static Biome GetBiome(Position pos, Stats stats)
+	internal static Biome GetBiome(Position pos, Stats stats)
 	{
 		if (!stats.Biomes.ContainsKey(pos))
 		{
@@ -272,7 +233,7 @@ internal class Program
 		return stats.Biomes[pos];
 	}
 
-	static Biome ShowBiome(Position pos, Stats stats)
+	internal static Biome ShowBiome(Position pos, Stats stats)
 	{
 		Biome biome = GetBiome(pos, stats);
 		Console.Fill(biome.Color);

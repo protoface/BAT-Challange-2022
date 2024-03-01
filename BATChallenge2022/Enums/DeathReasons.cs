@@ -5,4 +5,5 @@ internal enum DeathReasons
 	Diabetes,
 	Mafia,
 	Money,
+	Self
 }
